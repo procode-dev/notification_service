@@ -79,7 +79,7 @@ export default function Home() {
 
   const sendNotification = async () => {
     try {
-      const res = await fetch("/api/notify/send", {
+      const res = await fetch("http://localhost:3004/api/notify/send", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

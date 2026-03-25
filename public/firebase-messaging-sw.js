@@ -11,13 +11,13 @@ firebase.initializeApp({
 
 const messaging = firebase.messaging();
 
+// Background notifications
 messaging.onBackgroundMessage((payload) => {
-  console.log("📩 Background message:", payload);
+  console.log("📩 SW received push:", payload);
 
   const title = payload.data?.title ?? "Notification";
   const body = payload.data?.body ?? "";
 
-  // Show browser notification
   self.registration.showNotification(title, {
     body,
     icon: "/next.svg",
@@ -25,9 +25,8 @@ messaging.onBackgroundMessage((payload) => {
     requireInteraction: true,
   });
 
-  // Forward message to all open tabs (for alerts)
-  self.clients
-    .matchAll({ includeUncontrolled: true, type: "window" })
+  // Forward to tabs (for alerts)
+  self.clients.matchAll({ includeUncontrolled: true, type: "window" })
     .then((clients) => {
       clients.forEach((client) => {
         client.postMessage({ type: "BACKGROUND_MESSAGE", title, body });

@@ -8,7 +8,7 @@ import { getFirebaseMessaging } from "./firebase";
 export default function Home() {
   const [token, setToken] = useState<string>("");
 
-  // Listen for background messages sent from SW
+  // Listen for messages from the SW (background notifications)
   useEffect(() => {
     const handler = (event: MessageEvent) => {
       if (event.data?.type === "BACKGROUND_MESSAGE") {
@@ -27,7 +27,6 @@ export default function Home() {
     };
   }, []);
 
-  // Initialize Firebase Messaging
   useEffect(() => {
     const initFCM = async () => {
       try {
@@ -49,7 +48,7 @@ export default function Home() {
           return;
         }
 
-        // ✅ Get FCM token (linked to SW)
+        // ✅ Get FCM token linked to SW
         const currentToken = await getToken(messaging, {
           vapidKey:
             "BFCmrf0AVe5GU1hDeamWet9SY5sYMv87L4bb41O8A4XUbsBBm3QkUPUeDkYFNIOMvKfk5ysulmySFrsoP02u18s",
@@ -63,26 +62,24 @@ export default function Home() {
           console.log("❌ No token received");
         }
 
-        // ✅ Foreground messages
+        // ✅ Foreground messages (alert fallback)
         onMessage(messaging, (payload) => {
           const title = payload.data?.title ?? "Notification";
           const body = payload.data?.body ?? "";
 
-          // Fallback alert in tab
           alert(`📩 ${title}\n\n${body}`);
         });
       } catch (err) {
-        console.error("🔥 FCM initialization error:", err);
+        console.error("🔥 FCM init error:", err);
       }
     };
 
     initFCM();
   }, []);
 
-  // Send test notification
   const sendNotification = async () => {
     try {
-      const res = await fetch("http://localhost:3004/api/notify/send", {
+      const res = await fetch("/api/notify/send", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

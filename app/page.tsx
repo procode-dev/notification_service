@@ -7,75 +7,84 @@ import { getFirebaseMessaging } from "./firebase";
 
 export default function Home() {
   const [token, setToken] = useState<string>("");
-useEffect(() => {
-  if ("serviceWorker" in navigator) {
-    navigator.serviceWorker.addEventListener("message", (event) => {
+
+  // Listen for background messages sent from SW
+  useEffect(() => {
+    const handler = (event: MessageEvent) => {
       if (event.data?.type === "BACKGROUND_MESSAGE") {
-        alert(`${event.data.title}\n\n${event.data.body}`);
+        alert(`📩 ${event.data.title}\n\n${event.data.body}`);
       }
-    });
-  }
-}, []);
-useEffect(() => {
-  const initFCM = async () => {
-    try {
-      const messaging = await getFirebaseMessaging();
-      if (!messaging) return;
+    };
 
-      const permission = await Notification.requestPermission();
-      console.log("Permission:", permission);
-
-      if (permission !== "granted") {
-        console.log("❌ Notification permission denied");
-        return;
-      }
-
-      // ✅ Register service worker (important)
-      await navigator.serviceWorker.register("/firebase-messaging-sw.js");
-
-      const currentToken = await getToken(messaging, {
-        vapidKey: "BFCmrf0AVe5GU1hDeamWet9SY5sYMv87L4bb41O8A4XUbsBBm3QkUPUeDkYFNIOMvKfk5ysulmySFrsoP02u18s",
-      });
-
-      if (currentToken) {
-        console.log("✅ FCM Token:", currentToken);
-        setToken(currentToken);
-      } else {
-        console.log("❌ No token received");
-      }
-
-      // ✅ Foreground message listener
-      onMessage(messaging, (payload) => {
-        const title = payload.data?.title ?? "Notification";
-        const body = payload.data?.body ?? "";
-
-        alert(`${title}\n\n${body}`);
-
-        if (Notification.permission === "granted") {
-          new Notification(title, {
-            body,
-            icon: "/next.svg",
-            badge: "/next.svg",
-            requireInteraction: true,
-          });
-        }
-      });
-
-    } catch (err) {
-      console.error("🔥 Token error:", err);
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker.addEventListener("message", handler);
     }
-  };
 
-  initFCM();
-}, []);
+    return () => {
+      if ("serviceWorker" in navigator) {
+        navigator.serviceWorker.removeEventListener("message", handler);
+      }
+    };
+  }, []);
 
+  // Initialize Firebase Messaging
+  useEffect(() => {
+    const initFCM = async () => {
+      try {
+        if (typeof window === "undefined") return;
+
+        const messaging = await getFirebaseMessaging();
+        if (!messaging) return;
+
+        // ✅ Register service worker first
+        const swRegistration = await navigator.serviceWorker.register(
+          "/firebase-messaging-sw.js"
+        );
+
+        // ✅ Request notification permission
+        const permission = await Notification.requestPermission();
+        console.log("Notification permission:", permission);
+        if (permission !== "granted") {
+          console.log("❌ Notification permission denied");
+          return;
+        }
+
+        // ✅ Get FCM token (linked to SW)
+        const currentToken = await getToken(messaging, {
+          vapidKey:
+            "BFCmrf0AVe5GU1hDeamWet9SY5sYMv87L4bb41O8A4XUbsBBm3QkUPUeDkYFNIOMvKfk5ysulmySFrsoP02u18s",
+          serviceWorkerRegistration: swRegistration,
+        });
+
+        if (currentToken) {
+          console.log("✅ FCM Token:", currentToken);
+          setToken(currentToken);
+        } else {
+          console.log("❌ No token received");
+        }
+
+        // ✅ Foreground messages
+        onMessage(messaging, (payload) => {
+          const title = payload.data?.title ?? "Notification";
+          const body = payload.data?.body ?? "";
+
+          // Fallback alert in tab
+          alert(`📩 ${title}\n\n${body}`);
+        });
+      } catch (err) {
+        console.error("🔥 FCM initialization error:", err);
+      }
+    };
+
+    initFCM();
+  }, []);
+
+  // Send test notification
   const sendNotification = async () => {
     try {
       const res = await fetch("http://localhost:3004/api/notify/send", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           token,
           title: "Hello 🚀",
@@ -84,7 +93,6 @@ useEffect(() => {
       });
 
       const data = await res.json();
-
       if (!res.ok) throw new Error(data.message);
 
       alert(`✅ Sent: ${JSON.stringify(data)}`);
@@ -96,7 +104,6 @@ useEffect(() => {
   return (
     <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 dark:bg-black">
       <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-center gap-6 py-20 px-6 bg-white dark:bg-black">
-
         <Image
           className="dark:invert"
           src="/next.svg"
@@ -120,7 +127,6 @@ useEffect(() => {
         <p className="text-xs break-all text-gray-500">
           Token: {token || "Fetching token..."}
         </p>
-
       </main>
     </div>
   );

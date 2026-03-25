@@ -11,13 +11,13 @@ firebase.initializeApp({
 
 const messaging = firebase.messaging();
 
-messaging.onBackgroundMessage(function (payload) {
+messaging.onBackgroundMessage((payload) => {
   console.log("📩 Background message:", payload);
 
   const title = payload.data?.title ?? "Notification";
   const body = payload.data?.body ?? "";
 
-  // ✅ Show browser notification (this is the only visible way in SW)
+  // Show browser notification
   self.registration.showNotification(title, {
     body,
     icon: "/next.svg",
@@ -25,15 +25,12 @@ messaging.onBackgroundMessage(function (payload) {
     requireInteraction: true,
   });
 
-  // 🔹 For testing: send message to all open clients (tabs) to trigger alert there
-  self.clients.matchAll({ includeUncontrolled: true, type: "window" })
-    .then(clients => {
-      clients.forEach(client => {
-        client.postMessage({
-          type: "BACKGROUND_MESSAGE",
-          title,
-          body,
-        });
+  // Forward message to all open tabs (for alerts)
+  self.clients
+    .matchAll({ includeUncontrolled: true, type: "window" })
+    .then((clients) => {
+      clients.forEach((client) => {
+        client.postMessage({ type: "BACKGROUND_MESSAGE", title, body });
       });
     });
 });

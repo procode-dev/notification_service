@@ -56,6 +56,7 @@ export default function Home() {
         new Notification(payload.notification?.title || "Notification", {
           body: payload.notification?.body || "",
           icon: "/next.svg",
+          tag: "fcm-group-1",
         });
       });
     };

@@ -27,5 +27,6 @@ messaging.onBackgroundMessage((payload) => {
   self.registration.showNotification(title, {
     body,
     icon: "/next.svg",
+    tag: "fcm-group-1",
   });
 });

@@ -92,7 +92,21 @@ export default function Home() {
       }),
     });
   };
-
+// Add this function inside your Home component
+const handleRequestPermission = async () => {
+  try {
+    const permission = await Notification.requestPermission();
+    if (permission === "granted") {
+      console.log("Permission granted! Now initializing FCM...");
+      // Re-run your token logic here
+      window.location.reload(); // Quick way to let useEffect catch the new permission
+    } else {
+      alert("Permission denied. Please enable notifications in iPhone Settings.");
+    }
+  } catch (error) {
+    console.error("Error requesting permission", error);
+  }
+};
   return (
       <div className="flex flex-col items-center justify-center h-screen">
       {/* <Image src="/next.svg" alt="logo" width={120} height={40} /> */}
@@ -100,7 +114,14 @@ export default function Home() {
       <h1 className="text-xl font-bold mt-4">
         Firebase Push Notification 🔔
       </h1>
-
+{typeof window !== "undefined" && Notification.permission !== "granted" && (
+      <button
+        onClick={handleRequestPermission}
+        className="bg-blue-600 text-white px-6 py-2 mt-4 rounded"
+      >
+        Enable Notifications (For iPhone)
+      </button>
+    )}
       <button
         onClick={sendNotification}
         className="bg-purple-600 text-white px-6 py-2 mt-4 rounded"

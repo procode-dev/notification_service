@@ -6,131 +6,111 @@ import { getFirebaseMessaging } from "./firebase";
 
 export default function Home() {
   const [token, setToken] = useState("");
+  const [permission, setPermission] = useState("default");
 
-  // ✅ 1. SERVICE WORKER + TOKEN
+  // ✅ 1. Check permission safely on mount
+  useEffect(() => {
+    if (typeof window !== "undefined" && "Notification" in window) {
+      setPermission(Notification.permission);
+    }
+  }, []);
+
+  // ✅ 2. Token Initialization
   useEffect(() => {
     const init = async () => {
+      if (permission !== "granted") return;
+
       const messaging = await getFirebaseMessaging();
       if (!messaging) return;
 
-      const swRegistration =
-        await navigator.serviceWorker.register("/firebase-messaging-sw.js");
+      try {
+        const swRegistration = await navigator.serviceWorker.register("/firebase-messaging-sw.js");
+        
+        const currentToken = await getToken(messaging, {
+          vapidKey: "BFCmrf0AVe5GU1hDeamWet9SY5sYMv87L4bb41O8A4XUbsBBm3QkUPUeDkYFNIOMvKfk5ysulmySFrsoP02u18s",
+          serviceWorkerRegistration: swRegistration,
+        });
 
-      const permission = await Notification.requestPermission();
-      if (permission !== "granted") return;
-
-      const currentToken = await getToken(messaging, {
-        vapidKey:
-          "BFCmrf0AVe5GU1hDeamWet9SY5sYMv87L4bb41O8A4XUbsBBm3QkUPUeDkYFNIOMvKfk5ysulmySFrsoP02u18s",
-        serviceWorkerRegistration: swRegistration,
-      });
-
-      if (currentToken) {
-        console.log("FCM Token:", currentToken);
-        setToken(currentToken);
+        if (currentToken) {
+          console.log("FCM Token:", currentToken);
+          setToken(currentToken);
+        }
+      } catch (err) {
+        console.error("Token init failed", err);
       }
     };
 
     init();
-  }, []);
+  }, [permission]); // Re-run when permission changes to 'granted'
 
-  // ✅ 2. FOREGROUND LISTENER (MOVE HERE)
+  // ✅ 3. Foreground Listener
   useEffect(() => {
+    let unsubscribe = () => {};
+
     const setupListener = async () => {
       const messaging = await getFirebaseMessaging();
       if (!messaging) return;
 
-      onMessage(messaging, (payload) => {
+      unsubscribe = onMessage(messaging, (payload) => {
         console.log("🔥 Foreground message:", payload);
-
-        const title =
-          payload.notification?.title ||
-          payload.data?.title ||
-          "Notification";
-
-        const body =
-          payload.notification?.body ||
-          payload.data?.body ||
-          "";
-
-        console.log("Permission:", Notification.permission);
-
-  // ✅ ALWAYS show alert first (debug)
-  // alert(`📩 ${title}\n\n${body}`);
-        new Notification(title, {
-          body,
+        new Notification(payload.notification?.title || "Notification", {
+          body: payload.notification?.body || "",
           icon: "/next.svg",
         });
       });
     };
 
     setupListener();
+    return () => unsubscribe();
   }, []);
 
-  // optional SW message listener
-  useEffect(() => {
-    const handler = (event: MessageEvent) => {
-      if (event.data?.type === "BACKGROUND_MESSAGE") {
-        alert(`📩 ${event.data.title}\n\n${event.data.body}`);
-      }
-    };
+  const handleRequestPermission = async () => {
+    if (!("Notification" in window)) {
+      alert("This browser does not support notifications.");
+      return;
+    }
 
-    navigator.serviceWorker?.addEventListener("message", handler);
-
-    return () =>
-      navigator.serviceWorker?.removeEventListener("message", handler);
-  }, []);
+    const result = await Notification.requestPermission();
+    setPermission(result);
+    
+    if (result !== "granted") {
+      alert("Permission denied. On iPhone, you must 'Add to Home Screen' first.");
+    }
+  };
 
   const sendNotification = async () => {
+    // Your existing fetch call...
     await fetch("http://localhost:3004/api/notify/send", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        token,
-        title: "Hello 🚀",
-        body: "Push notification working!",
-      }),
+      body: JSON.stringify({ token, title: "Hello 🚀", body: "Push notification working!" }),
     });
   };
-// Add this function inside your Home component
-const handleRequestPermission = async () => {
-  try {
-    const permission = await Notification.requestPermission();
-    if (permission === "granted") {
-      console.log("Permission granted! Now initializing FCM...");
-      // Re-run your token logic here
-      window.location.reload(); // Quick way to let useEffect catch the new permission
-    } else {
-      alert("Permission denied. Please enable notifications in iPhone Settings.");
-    }
-  } catch (error) {
-    console.error("Error requesting permission", error);
-  }
-};
-  return (
-      <div className="flex flex-col items-center justify-center h-screen">
-      {/* <Image src="/next.svg" alt="logo" width={120} height={40} /> */}
 
-      <h1 className="text-xl font-bold mt-4">
-        Firebase Push Notification 🔔
-      </h1>
-{typeof window !== "undefined" && Notification.permission !== "granted" && (
-      <button
-        onClick={handleRequestPermission}
-        className="bg-blue-600 text-white px-6 py-2 mt-4 rounded"
-      >
-        Enable Notifications (For iPhone)
-      </button>
-    )}
+  return (
+    <div className="flex flex-col items-center justify-center h-screen">
+      <h1 className="text-xl font-bold mt-4">Push Notification 🔔</h1>
+
+      {/* ✅ Safe Permission Button */}
+      {permission !== "granted" && (
+        <button
+          onClick={handleRequestPermission}
+          className="bg-blue-600 text-white px-6 py-2 mt-4 rounded"
+        >
+          Enable Notifications (For iPhone)
+        </button>
+      )}
+
       <button
         onClick={sendNotification}
-        className="bg-purple-600 text-white px-6 py-2 mt-4 rounded"
+        className="bg-purple-600 text-white px-6 py-2 mt-4 rounded disabled:opacity-50"
+        disabled={!token}
       >
         Send Notification
       </button>
 
-      <p className="text-xs mt-4 break-all text-gray-500">
-        {token || "Fetching token..."}
+      <p className="text-xs mt-4 break-all text-gray-500 max-w-md text-center">
+        {token || "Waiting for permission..."}
       </p>
     </div>
   );

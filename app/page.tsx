@@ -55,6 +55,8 @@ export default function Home() {
 
         console.log("Permission:", Notification.permission);
 
+  // ✅ ALWAYS show alert first (debug)
+  alert(`📩 ${title}\n\n${body}`);
         new Notification(title, {
           body,
           icon: "/next.svg",

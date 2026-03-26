@@ -53,8 +53,8 @@ export default function Home() {
 
       unsubscribe = onMessage(messaging, (payload) => {
         console.log("🔥 Foreground message:", payload);
-        new Notification(payload.notification?.title || "Notification", {
-          body: payload.notification?.body || "",
+        new Notification(payload.notification?.title||payload.data?.title || "Notification", {
+          body: payload.notification?.body||payload.data?.body || "",
           icon: "/next.svg",
           tag: "fcm-group-1",
         });

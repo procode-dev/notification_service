@@ -11,25 +11,21 @@ firebase.initializeApp({
 
 const messaging = firebase.messaging();
 
-// Background notifications
 messaging.onBackgroundMessage((payload) => {
-  console.log("📩 SW received push:", payload);
+  console.log("Background:", payload);
 
-  const title = payload.data?.title ?? "Notification";
-  const body = payload.data?.body ?? "";
+  const title =
+    payload.notification?.title ||
+    payload.data?.title ||
+    "Notification";
+
+  const body =
+    payload.notification?.body ||
+    payload.data?.body ||
+    "";
 
   self.registration.showNotification(title, {
     body,
     icon: "/next.svg",
-    badge: "/next.svg",
-    requireInteraction: true,
   });
-
-  // Forward to tabs (for alerts)
-  self.clients.matchAll({ includeUncontrolled: true, type: "window" })
-    .then((clients) => {
-      clients.forEach((client) => {
-        client.postMessage({ type: "BACKGROUND_MESSAGE", title, body });
-      });
-    });
 });
